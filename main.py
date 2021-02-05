@@ -45,16 +45,17 @@ class Config:
 class Underlying:
     def __init__(self, config, symbol):
         self.response = {}
-        self.token = ""
         self.config = config
-        self.call_api(symbol)
+        self.symbol = symbol
+        self.call_api(self.symbol)
         self.data = {}
 
     def call_api(self, symbol):
         header = {"Authorization": self.config.access_token, "Accept-Language": "en-us",
                   "Accept-Encoding": "gzip"}
         url = str(self.config.settings["options_endpoint"] + "?apikey=" + self.config.settings[
-            "apikey"] + "&symbol=" + symbol + "&contractType=CALL&strikeCount=20&includeQuotes=FALSE&strategy=ANALYTICAL&range=OTM&volatility=70")
+            "apikey"] + "&symbol=" + symbol + "&contractType=CALL&strikeCount=20&includeQuotes=FALSE&strategy"
+                                              "=ANALYTICAL&range=OTM&volatility=70")
 
         r = requests.get(url, headers=header)
         self.response = json.loads(json.dumps(r.json()))
@@ -81,24 +82,34 @@ def get_watchlist(config):
 
 
 def evaluate(underlying_data):
+    date_count = 0
+    viable_cc = []
+    viable_cc_fields = ['underlying', 'strike', 'date', 'description', 'volatility', 'delta', 'mark', 'MCR']
     for underlying in underlying_data:
         for date, strikes in underlying.response["callExpDateMap"].items():
-            for strike in strikes:
-                if underlying.response['underlyingPrice'] < float(strike):
-                    data = strikes[strike][0]
-                    if float(data['delta']) > 0.5:
-                        print("Viable CC detected: " + str(data['description']))
-                        print("OTM delta value @ " + str(data['delta']))
-                        print("Min entry price: $" + str(underlying.response['underlyingPrice'] * 100))
-                        print("Max covered return: $" + str(
-                            (float(strike) * 100 - float(underlying.response['underlyingPrice']) * 100) + float(
-                                data['mark']) * 100) + '\n')
+            date_count += 1
+            if date_count < 3:
+                for strike in strikes:
+                    if underlying.response['underlyingPrice'] < float(strike):
+                        data = strikes[strike][0]
+                        if float(data['delta']) > 0.5:
+                            print("Viable CC detected: " + str(data['description']))
+                            print("OTM delta value @ " + str(data['delta']))
+                            print("Min entry price: $" + str(underlying.response['underlyingPrice'] * 100))
+                            print("Max covered return: $" + str(
+                                (float(strike) * 100 - float(underlying.response['underlyingPrice']) * 100) + float(
+                                    data['mark']) * 100) + '\n')
+                            option = [underlying.symbol, strike, date, data['description'], data['volatility'], data['delta'], data['bid'], (float(strike) * 100 - float(underlying.response['underlyingPrice']) * 100) + float(
+                                    data['mark']) * 100]
+                            viable_cc.append((dict(zip(viable_cc_fields, option))))
+    print(viable_cc)
 
 
 def main():
     config = Config()
     if config.get_token() == 1:
         print("oAuth rotation failed, is the refresh token valid?")
+        return 401
     underlying_data = get_options_chain(config)
     evaluate(underlying_data)
     print('\n')
