@@ -1,12 +1,15 @@
-# Optimal CC/CSP Detection - General strategy:
-Find maximum covered/secured returns, relies on TD Ameritrade API
+# Optimal CC/CSP Detection - General strategy/goals:
 
-Find stocks with more upside potential than downside by:
+- Find maximum covered/secured returns
+- Develop algorithm to normalize quantitative fundamental analysis (IE using PE, EV/EVIT, EPS, dividend ratio, etc)
+- Evalulate individual options (IE date/strike) for CC/CSP viability based on min/max return, momentum, % risk, etc.
+
+Discover stocks with more upside potential than downside by:
 
 - Analyzing capital structure
   - low debt compared to equity/assets
-  - assuming floor of stock value is implied by cash reported
-  - assuming that underlying volatility decreases as share price approaches positive cash balance
+  - assume that floor of stock value is implied by cash reported
+  - assume that underlying equity volatility decreases as share price approaches positive cash balance
 - Analyzing valuation
   - Measure valuation by considering relative cash flow (value / earnings before interest (EV/EVIT))
   - Analyze PE ratio, higher = better lol
@@ -15,6 +18,8 @@ Find stocks with more upside potential than downside by:
 - Analyze volatility
 - Analyze option scene
   - Maybe average share volume - average option volume gives some clues to investor interest?
+
+Note: Program relies on TD Ameritrade API: https://developer.tdameritrade.com/apis
 
 # config.json - Layout
 
