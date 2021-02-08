@@ -12,6 +12,7 @@ import urllib.parse
 
 class Config:
     def __init__(self):
+        print("Initializing")
         self.access_token = ""
         with open("config.json", 'r') as configfile:
             self.settings = json.load(configfile)
@@ -32,7 +33,7 @@ class Config:
                 self.settings["refresh_token"] = response["refresh_token"]
                 json.dump(self.settings, configfile)
                 self.access_token = "Bearer " + response["access_token"]
-            print(self.access_token)
+            print("Bearer token created: {}".format(self.access_token))
             print("    **Info: Retrieved access token, continuing")
             return 0
         else:
@@ -64,8 +65,12 @@ class Underlying:
 def get_options_chain(config):
     tickers = get_watchlist(config)
     ticker_data = []
+    count = 0
     for symbol in tickers:
         ticker_data.append(Underlying(config, symbol))
+        print("Retrieved options chain for " + str(ticker_data[ticker_data.__len__() - 1].symbol))
+        count += 1
+    print("Found {} tickers on watchlist with ID {}\n".format(count, config.settings['watchlist_id']))
     return ticker_data
 
 
@@ -82,15 +87,16 @@ def get_watchlist(config):
 
 
 def evaluate(underlying_data):
+    print("Beginning evaluation")
     date_count = 0
     viable_cc = []
     viable_cc_fields = ['underlying', 'strike', 'date', 'description', 'volatility', 'delta', 'mark', 'MCR']
     for underlying in underlying_data:
         for date, strikes in underlying.response["callExpDateMap"].items():
             date_count += 1
-            if date_count < 3:
+            if date_count < 2:
                 for strike in strikes:
-                    if underlying.response['underlyingPrice'] < float(strike):
+                    if underlying.response['underlyingPrice'] < float(strike) - 2:
                         data = strikes[strike][0]
                         if float(data['delta']) > 0.5:
                             print("Viable CC detected: " + str(data['description']))
@@ -102,7 +108,11 @@ def evaluate(underlying_data):
                             option = [underlying.symbol, strike, date, data['description'], data['volatility'], data['delta'], data['bid'], (float(strike) * 100 - float(underlying.response['underlyingPrice']) * 100) + float(
                                     data['mark']) * 100]
                             viable_cc.append((dict(zip(viable_cc_fields, option))))
-    print(viable_cc)
+        date_count = 0
+    if viable_cc.__len__() > 0:
+        print(viable_cc)
+    else:
+        print("No viable CC's detected")
 
 
 def main():
