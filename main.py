@@ -45,21 +45,29 @@ class Config:
 
 class Underlying:
     def __init__(self, config, symbol):
-        self.response = {}
-        self.config = config
+        self.chain_data = {}
         self.symbol = symbol
-        self.call_api(self.symbol)
         self.data = {}
+        self.fundamental_data = {}
+        self.get_options_chain(config)
+        self.get_fundamentals(config)
 
-    def call_api(self, symbol):
-        header = {"Authorization": self.config.access_token, "Accept-Language": "en-us",
+    def get_options_chain(self, config):
+        header = {"Authorization": config.access_token, "Accept-Language": "en-us",
                   "Accept-Encoding": "gzip"}
-        url = str(self.config.settings["options_endpoint"] + "?apikey=" + self.config.settings[
-            "apikey"] + "&symbol=" + symbol + "&contractType=CALL&strikeCount=20&includeQuotes=FALSE&strategy"
+        url = str(config.settings["options_endpoint"] + "?apikey=" + config.settings[
+            "apikey"] + "&symbol=" + self.symbol + "&contractType=CALL&strikeCount=20&includeQuotes=FALSE&strategy"
                                               "=ANALYTICAL&range=OTM&volatility=70")
 
         r = requests.get(url, headers=header)
-        self.response = json.loads(json.dumps(r.json()))
+        self.chain_data = json.loads(json.dumps(r.json()))
+
+    def get_fundamentals(self, config):
+        header = {"Authorization:": config.access_token, "Accept-Language": "en-us", "Accept-Encoding": "gzip"}
+        url = '{}?apikey={}&symbol={}&projection=fundamental'.format(config.settings["fundamental_endpoint"], config.settings["apikey"], self.symbol)
+        r = requests.get(url, headers=header)
+        if r.status_code == 200:
+            self.fundamental_data = json.loads(json.dumps(r.json()))
 
 
 def get_options_chain(config):
@@ -92,20 +100,20 @@ def evaluate(underlying_data):
     viable_cc = []
     viable_cc_fields = ['underlying', 'strike', 'date', 'description', 'volatility', 'delta', 'mark', 'MCR']
     for underlying in underlying_data:
-        for date, strikes in underlying.response["callExpDateMap"].items():
+        for date, strikes in underlying.chain_data["callExpDateMap"].items():
             date_count += 1
             if date_count < 2:
                 for strike in strikes:
-                    if underlying.response['underlyingPrice'] < float(strike) - 2:
+                    if underlying.chain_data['underlyingPrice'] < float(strike) - 2:
                         data = strikes[strike][0]
                         if float(data['delta']) > 0.5:
                             print("Viable CC detected: " + str(data['description']))
                             print("OTM delta value @ " + str(data['delta']))
-                            print("Min entry price: $" + str(underlying.response['underlyingPrice'] * 100))
+                            print("Min entry price: $" + str(underlying.chain_data['underlyingPrice'] * 100))
                             print("Max covered return: $" + str(
-                                (float(strike) * 100 - float(underlying.response['underlyingPrice']) * 100) + float(
+                                (float(strike) * 100 - float(underlying.chain_data['underlyingPrice']) * 100) + float(
                                     data['mark']) * 100) + '\n')
-                            option = [underlying.symbol, strike, date, data['description'], data['volatility'], data['delta'], data['bid'], (float(strike) * 100 - float(underlying.response['underlyingPrice']) * 100) + float(
+                            option = [underlying.symbol, strike, date, data['description'], data['volatility'], data['delta'], data['bid'], (float(strike) * 100 - float(underlying.chain_data['underlyingPrice']) * 100) + float(
                                     data['mark']) * 100]
                             viable_cc.append((dict(zip(viable_cc_fields, option))))
         date_count = 0
