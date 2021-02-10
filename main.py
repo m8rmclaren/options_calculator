@@ -8,6 +8,7 @@ Copyright © 2020 Hayden Roszell. All rights reserved.
 import requests
 import json
 import urllib.parse
+import time
 
 
 class Config:
@@ -16,6 +17,7 @@ class Config:
         self.access_token = ""
         with open("config.json", 'r') as configfile:
             self.settings = json.load(configfile)
+        self.scheduler = Scheduler()
 
     def get_token(self):
         header = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -26,6 +28,7 @@ class Config:
             "client_id": self.settings["client_id"],
             "redirect_uri": "https://127.0.0.1"
         }
+        self.scheduler.report_call()
         r = requests.post(self.settings["auth_endpoint"], headers=header, data=urllib.parse.urlencode(body))
         if r.status_code == 200:
             response = json.loads(json.dumps(r.json()))
@@ -58,16 +61,46 @@ class Underlying:
         url = str(config.settings["options_endpoint"] + "?apikey=" + config.settings[
             "apikey"] + "&symbol=" + self.symbol + "&contractType=CALL&strikeCount=20&includeQuotes=FALSE&strategy"
                                               "=ANALYTICAL&range=OTM&volatility=70")
-
+        config.scheduler.report_call()
         r = requests.get(url, headers=header)
         self.chain_data = json.loads(json.dumps(r.json()))
 
     def get_fundamentals(self, config):
-        header = {"Authorization:": config.access_token, "Accept-Language": "en-us", "Accept-Encoding": "gzip"}
+        header = {"Authorization": config.access_token, "Accept-Language": "en-us", "Accept-Encoding": "gzip"}
         url = '{}?apikey={}&symbol={}&projection=fundamental'.format(config.settings["fundamental_endpoint"], config.settings["apikey"], self.symbol)
+
+        config.scheduler.report_call()
         r = requests.get(url, headers=header)
         if r.status_code == 200:
             self.fundamental_data = json.loads(json.dumps(r.json()))
+
+
+class Scheduler:
+    def __init__(self):
+        self.start_time = None
+        self.call_counter = 0
+        self.start_timer()
+
+    def start_timer(self):
+        if self.start_time is not None:
+            raise Exception("Start operation failed, use stop_timer() to pause scheduler.")
+        else:
+            self.start_time = time.perf_counter()
+
+    def stop_timer(self):
+        if self.start_time is None:
+            raise Exception("Stop operation failed, use start_timer() to start scheduler.")
+        self.start_time = None
+
+    def get_elapsed(self):
+        return time.perf_counter() - self.start_time
+
+    def report_call(self):
+        time_delta = time.perf_counter() - self.start_time
+        print(time_delta)
+        if time_delta < 0.5:
+            time.sleep(0.6-time_delta)
+        self.start_time = time.perf_counter()
 
 
 def get_options_chain(config):
@@ -76,7 +109,7 @@ def get_options_chain(config):
     count = 0
     for symbol in tickers:
         ticker_data.append(Underlying(config, symbol))
-        print("Retrieved options chain for " + str(ticker_data[ticker_data.__len__() - 1].symbol))
+        # print("Retrieved options chain for " + str(ticker_data[ticker_data.__len__() - 1].symbol))
         count += 1
     print("Found {} tickers on watchlist with ID {}\n".format(count, config.settings['watchlist_id']))
     return ticker_data
@@ -86,6 +119,8 @@ def get_watchlist(config):
     url = 'https://api.tdameritrade.com/v1/accounts/{}/watchlists/{}'.format(config.settings['account_num'], config.settings['watchlist_id'])
     header = {"Authorization": config.access_token}
     ticker_list = []
+
+    config.scheduler.report_call()
     r = requests.get(url, headers=header)
     if r.status_code == 200:
         response = json.loads(json.dumps(r.json()))
@@ -125,6 +160,7 @@ def evaluate(underlying_data):
 
 def main():
     config = Config()
+
     if config.get_token() == 1:
         print("oAuth rotation failed, is the refresh token valid?")
         return 401
