@@ -6,7 +6,6 @@ class Underlying:
     def __init__(self, config, symbol):
         self.chain_data = {}
         self.symbol = symbol
-        self.data = {}
         self.fundamental_data = {}
         self.get_options_chain(config)
         self.get_fundamentals(config)
