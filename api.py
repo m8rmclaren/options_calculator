@@ -8,14 +8,14 @@ class Underlying:
         self.symbol = symbol
         self.fundamental_data = {}
         self.get_options_chain(config)
-        self.get_fundamentals(config)
+        #self.get_fundamentals(config)
 
     def get_options_chain(self, config):
         header = {"Authorization": config.access_token, "Accept-Language": "en-us",
                   "Accept-Encoding": "gzip"}
-        url = str(config.settings["options_endpoint"] + "?apikey=" + config.settings[
-            "apikey"] + "&symbol=" + self.symbol + "&contractType=CALL&strikeCount=20&includeQuotes=FALSE&strategy"
-                                                   "=ANALYTICAL&range=OTM&volatility=70")
+
+        url = "{}?apikey={}&symbol={}&contractType=CALL&strikeCount=6&includeQuotes=FALSE&strategy=ANALYTICAL&range" \
+              "=OTM".format(config.settings["options_endpoint"], config.settings["apikey"], self.symbol)
         config.scheduler.report_call()
         r = requests.get(url, headers=header)
         self.chain_data = json.loads(json.dumps(r.json()))
